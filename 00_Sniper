@@ -1,0 +1,142 @@
+(function() {
+    let baseDatosCodigos = new Map();
+    let numeroDeLote = 1;
+    let pasoActual = 1;
+    let totalPropiedadesHistoricas = 0;
+
+    // ==================================================================
+    // ⚙️ PANEL DE CONFIGURACIÓN Y VARIABLES DE CONTROL
+    // ==================================================================
+    let SCROLLS_POR_LOTE = 250;       // Cada cuántos scrolls descargará un archivo .txt
+    let CANTIDAD_MAXIMA_LOTES = 5;   // CANDADO: Cuántos lotes bajará antes de apagarse solo
+    let INTERVALO_SCROLL_MS = 3800;   // Tiempo de espera (en milisegundos) entre scrolls
+
+    function aspirarPublicacionesQuirurgico() {
+        // 1. CLICS QUIRÚRGICOS EXCLUSIVOS
+        let todosLosBotones = document.querySelectorAll('div[role="button"], span[role="button"], div[class*="x1i10hfl"]');
+        todosLosBotones.forEach(boton => {
+            let txtBoton = (boton.textContent || "").trim();
+            if (txtBoton === "Ver más" || txtBoton === "Ver Mas" || txtBoton === "Más" || txtBoton === "Ver todo") {
+                try { boton.click(); } catch(e) {}
+            }
+        });
+
+        // 2. BUSCAR LAS TARJETAS REALES DEL FEED
+        let tarjetasReales = document.querySelectorAll('div[role="feed"] > div, div[role="article"], div[data-ccpa-component="feed-story"]');
+
+        tarjetasReales.forEach(tarjeta => {
+            let textoVisible = tarjeta.textContent || "";
+
+            if (textoVisible.includes('$') &&
+                (textoVisible.includes('renta') || textoVisible.includes('recámara') || textoVisible.includes('dormitorio') || textoVisible.includes('habitación') || textoVisible.includes('baño') || textoVisible.includes('vendo'))) {
+
+                if (textoVisible.includes('metaconfigData') || textoVisible.includes('application/json') || textoVisible.includes('Publicidad')) {
+                    return;
+                }
+
+                let codigoHtmlPost = tarjeta.outerHTML;
+
+                if (codigoHtmlPost.length > 1000 && codigoHtmlPost.length < 250000) {
+                    let matchId = codigoHtmlPost.match(/\"post_id\":\"?(\d+)\"?/);
+                    let llaveFirmaUnica = matchId ? matchId : "hash_" + codigoHtmlPost.length + "_" + textoVisible.substring(0, 15).replace(/[^a-zA-Z0-9]/g, "");
+
+                    if (!baseDatosCodigos.has(llaveFirmaUnica)) {
+                        baseDatosCodigos.set(llaveFirmaUnica, codigoHtmlPost);
+                    } else {
+                        let htmlExistente = baseDatosCodigos.get(llaveFirmaUnica);
+                        if (codigoHtmlPost.length > htmlExistente.length) {
+                            baseDatosCodigos.set(llaveFirmaUnica, codigoHtmlPost);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function descargarLoteActual() {
+        let listaEstructurada = [];
+        let contador = 1;
+
+        baseDatosCodigos.forEach((htmlCrudo) => {
+            let bloqueLimpio = `[ID_POST_${contador}]\n${htmlCrudo.trim()}`;
+            listaEstructurada.push(bloqueLimpio);
+            contador++;
+        });
+
+        let totalEnEsteLote = contador - 1;
+        totalPropiedadesHistoricas += totalEnEsteLote;
+
+        if (totalEnEsteLote === 0) {
+            console.warn(`⚠️ El lote ${numeroDeLote} está vacío. Saltando descarga.`);
+            return false;
+        }
+
+        let contenidoTxt = listaEstructurada.join("\n\n");
+        let blob = new Blob([contenidoTxt], { type: "text/plain;charset=utf-8" });
+        let url = URL.createObjectURL(blob);
+
+        let linkDescarga = document.createElement("a");
+        linkDescarga.href = url;
+        linkDescarga.download = `PUBLICACIONES_SLP_LOTE_${numeroDeLote}.txt`;
+        document.body.appendChild(linkDescarga);
+        linkDescarga.click();
+        document.body.removeChild(linkDescarga);
+
+        console.warn(`💾 [LOTE ${numeroDeLote} COMPLETO] Guardadas ${totalEnEsteLote} propiedades. Historial acumulado: ${totalPropiedadesHistoricas}`);
+
+        baseDatosCodigos.clear();
+        return true;
+    }
+
+    // Anclaje al tope absoluto de la página al arrancar
+    window.scrollTo(0, 0);
+    console.warn(`⏳ Iniciando aspiradora programada para ${CANTIDAD_MAXIMA_LOTES} lotes... Espera 3.5 segundos.`);
+
+    setTimeout(() => {
+        aspirarPublicacionesQuirurgico();
+
+        let intervaloRobot = setInterval(() => {
+            // Avanzar el scroll de forma recta
+            window.scrollBy(0, 520);
+
+            // Limpieza visual del DOM cada 25 scrolls
+            if (pasoActual % 25 === 0) {
+                aspirarPublicacionesQuirurgico();
+            } else {
+                setTimeout(aspirarPublicacionesQuirurgico, 500);
+            }
+
+            // ⌚ NUESTRO RELOJ: Mensaje en consola detallado por cada scroll ejecutado
+            let avanceLote = (pasoActual % SCROLLS_POR_LOTE === 0) ? SCROLLS_POR_LOTE : (pasoActual % SCROLLS_POR_LOTE);
+            console.log(
+                `%c🕒 [SCROLL ${pasoActual}] %c• Lote Actual: #${numeroDeLote} (${avanceLote}/${SCROLLS_POR_LOTE}) %c• Propiedades Capturadas en este lote: ${baseDatosCodigos.size}`,
+                "color: #00bcd4; font-weight: bold;", // Color cian para el reloj
+                "color: #ff9800;",                    // Color naranja para el lote
+                "color: #4caf50; font-weight: bold;"  // Color verde para el contador de casas
+            );
+
+            // EVALUACIÓN DE CONTROL: ¿Llegamos al corte de un lote?
+            if (pasoActual % SCROLLS_POR_LOTE === 0) {
+                let descargaExitosa = descargarLoteActual();
+
+                // VALIDACIÓN DEL CANDADO
+                if (numeroDeLote >= CANTIDAD_MAXIMA_LOTES) {
+                    clearInterval(intervaloRobot);
+                    console.log("%c🛑 [PROCESO TERMINADO CON ÉXITO]", "color: #ff0000; font-size: 16px; font-weight: bold;");
+                    console.log(`%cEl robot ha completado los ${CANTIDAD_MAXIMA_LOTES} lotes programados. Total de propiedades raspadas: ${totalPropiedadesHistoricas}`, "color: #00ff00; font-size: 14px;");
+                    alert(`¡Misión cumplida! Se completaron los ${CANTIDAD_MAXIMA_LOTES} lotes de forma segura.`);
+                    return;
+                }
+
+                if (descargaExitosa) {
+                    numeroDeLote++;
+                }
+                console.warn(`🚀 Iniciando Lote ${numeroDeLote} a partir del scroll número ${pasoActual}...`);
+            }
+
+            pasoActual++;
+
+        }, INTERVALO_SCROLL_MS);
+
+    }, 3500);
+})();
