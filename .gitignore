@@ -1,6 +1,9 @@
 .venv/
 .idea/
 __pycache__/
+valuo_sipri/runtime_data/
+valuo_sipri.db
+.env
 *.py[cod]
 tmp_doc/
 *.tmp
