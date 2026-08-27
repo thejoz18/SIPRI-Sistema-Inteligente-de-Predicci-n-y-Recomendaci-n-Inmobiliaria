@@ -90,7 +90,7 @@ class Opinion(Base):
     estimate: Mapped[float] = mapped_column(Float)
     lower_value: Mapped[float] = mapped_column(Float)
     upper_value: Mapped[float] = mapped_column(Float)
-    confidence: Mapped[str] = mapped_column(String(30))
+    confidence: Mapped[str] = mapped_column(String(80))
     model_version: Mapped[str] = mapped_column(String(40))
     comparable_summary: Mapped[str] = mapped_column(Text)
     valuation_summary: Mapped[str] = mapped_column(Text, default="{}")
@@ -100,8 +100,13 @@ class Opinion(Base):
 
 def create_database() -> None:
     Base.metadata.create_all(bind=engine)
-    # Migración mínima para instalaciones locales creadas antes de calcular ambos mercados.
+    # Migraciones mínimas para instalaciones creadas por versiones anteriores.
     columns = {column["name"] for column in inspect(engine).get_columns("opinions")}
     if "valuation_summary" not in columns:
         with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE opinions ADD COLUMN valuation_summary TEXT DEFAULT '{}'") )
+            connection.execute(text("ALTER TABLE opinions ADD COLUMN valuation_summary TEXT DEFAULT '{}'"))
+    # La confianza descriptiva puede superar 30 caracteres; PostgreSQL conserva el límite
+    # de una tabla creada por la primera versión hasta que se migra explícitamente.
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE opinions ALTER COLUMN confidence TYPE VARCHAR(80)"))
