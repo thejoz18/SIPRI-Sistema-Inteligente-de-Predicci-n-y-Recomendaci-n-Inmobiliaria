@@ -22,6 +22,7 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 from .database import Amenity, Comparable, Opinion, SessionLocal, Zone, create_database
 from .engine import estimate_both_markets
+from .ml_models import predict_ml
 from .seed import seed_database
 
 ROOT = Path(__file__).resolve().parent
@@ -132,6 +133,7 @@ async def create_opinion(
             valuation_summary[market] = {
                 "estimate": market_result["estimate"], "lower": market_result["lower"], "upper": market_result["upper"],
                 "confidence": market_result["confidence"], "model_version": market_result["model_version"],
+                "ia": predict_ml(market, values),
             }
         opinion = Opinion(
             folio=folio, image_paths=json.dumps(photo_paths), amenities_text=", ".join(amenities),

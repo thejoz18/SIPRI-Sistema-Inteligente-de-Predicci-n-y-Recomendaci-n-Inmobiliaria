@@ -1,0 +1,96 @@
+{
+  "VENTA": {
+    "market": "VENTA",
+    "selected_model": "Regresión lineal",
+    "metrics": {
+      "mae": 2521733.56,
+      "rmse": 3202144.91,
+      "r2": 0.402
+    },
+    "all_metrics": {
+      "Regresión lineal": {
+        "mae": 2521733.56,
+        "rmse": 3202144.91,
+        "r2": 0.402
+      },
+      "Árbol de decisión": {
+        "mae": 2556345.2,
+        "rmse": 3452601.61,
+        "r2": 0.3048
+      }
+    },
+    "feature_names": [
+      "metros_validado_ajustado",
+      "habitaciones_validado_ajustado",
+      "banos_validado_ajustado",
+      "estacionamientos_validado_ajustado",
+      "alberca_validado",
+      "vigilancia_validado",
+      "jardin_validado",
+      "terraza_validado",
+      "balcon_validado",
+      "amueblado_validado",
+      "aire_acondicionado_validado",
+      "cocina_integral_validado",
+      "gimnasio_validado",
+      "elevador_validado",
+      "bodega_validado",
+      "roof_garden_validado",
+      "cuarto_servicio_validado",
+      "estudio_validado"
+    ],
+    "training_rows": 305,
+    "test_rows": 61,
+    "trained_at": "2026-08-27T03:16:59.819393+00:00",
+    "source": "datos\\dataset_ajustado.xlsx",
+    "target_transform": "none",
+    "version": "savi-ia-v1"
+  },
+  "RENTA": {
+    "market": "RENTA",
+    "selected_model": "Regresión lineal",
+    "metrics": {
+      "mae": 2748.57,
+      "rmse": 3757.37,
+      "r2": 0.1534
+    },
+    "all_metrics": {
+      "Regresión lineal": {
+        "mae": 2748.57,
+        "rmse": 3757.37,
+        "r2": 0.1534
+      },
+      "Árbol de decisión": {
+        "mae": 2931.41,
+        "rmse": 4114.96,
+        "r2": -0.0155
+      }
+    },
+    "feature_names": [
+      "metros_validado_ajustado",
+      "habitaciones_validado_ajustado",
+      "banos_validado_ajustado",
+      "estacionamientos_validado_ajustado",
+      "alberca_validado",
+      "vigilancia_validado",
+      "jardin_validado",
+      "terraza_validado",
+      "balcon_validado",
+      "amueblado_validado",
+      "aire_acondicionado_validado",
+      "cocina_integral_validado",
+      "gimnasio_validado",
+      "elevador_validado",
+      "bodega_validado",
+      "roof_garden_validado",
+      "cuarto_servicio_validado",
+      "estudio_validado"
+    ],
+    "training_rows": 435,
+    "test_rows": 87,
+    "trained_at": "2026-08-27T03:16:59.845621+00:00",
+    "source": "datos\\dataset_ajustado.xlsx",
+    "target_transform": "log1p",
+    "version": "savi-ia-v1"
+  }
+}
