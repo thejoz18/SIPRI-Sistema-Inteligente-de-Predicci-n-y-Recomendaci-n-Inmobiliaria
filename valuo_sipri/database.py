@@ -61,9 +61,14 @@ class Comparable(Base):
     construction_m2: Mapped[float] = mapped_column(Float)
     land_m2: Mapped[float] = mapped_column(Float)
     bedrooms: Mapped[int] = mapped_column(Integer, default=0)
+    age_years: Mapped[int] = mapped_column(Integer, default=0)
+    condition: Mapped[str] = mapped_column(String(30), default="BUENO")
     price: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(3), default="MXN")
     source: Mapped[str] = mapped_column(String(200), default="Muestra demostrativa")
+    source_url: Mapped[str] = mapped_column(Text, default="")
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     observed_at: Mapped[str] = mapped_column(String(20), default="2026-08")
 
 
@@ -86,6 +91,7 @@ class Opinion(Base):
     parking_spaces: Mapped[int] = mapped_column(Integer)
     age_years: Mapped[int] = mapped_column(Integer)
     quality: Mapped[str] = mapped_column(String(30))
+    condition: Mapped[str] = mapped_column(String(30), default="BUENO")
     amenities_text: Mapped[str] = mapped_column(Text, default="")
     estimate: Mapped[float] = mapped_column(Float)
     lower_value: Mapped[float] = mapped_column(Float)
@@ -110,3 +116,22 @@ def create_database() -> None:
     if engine.dialect.name == "postgresql":
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE opinions ALTER COLUMN confidence TYPE VARCHAR(80)"))
+    comparable_columns = {column["name"] for column in inspect(engine).get_columns("comparables")}
+    opinion_columns = {column["name"] for column in inspect(engine).get_columns("opinions")}
+    migrations = []
+    if "condition" not in comparable_columns:
+        migrations.append("ALTER TABLE comparables ADD COLUMN condition VARCHAR(30) DEFAULT 'BUENO'")
+    if "age_years" not in comparable_columns:
+        migrations.append("ALTER TABLE comparables ADD COLUMN age_years INTEGER DEFAULT 0")
+    if "currency" not in comparable_columns:
+        migrations.append("ALTER TABLE comparables ADD COLUMN currency VARCHAR(3) DEFAULT 'MXN'")
+    if "source_url" not in comparable_columns:
+        migrations.append("ALTER TABLE comparables ADD COLUMN source_url TEXT DEFAULT ''")
+    if "is_active" not in comparable_columns:
+        migrations.append("ALTER TABLE comparables ADD COLUMN is_active BOOLEAN DEFAULT TRUE")
+    if "condition" not in opinion_columns:
+        migrations.append("ALTER TABLE opinions ADD COLUMN condition VARCHAR(30) DEFAULT 'BUENO'")
+    if migrations:
+        with engine.begin() as connection:
+            for statement in migrations:
+                connection.execute(text(statement))

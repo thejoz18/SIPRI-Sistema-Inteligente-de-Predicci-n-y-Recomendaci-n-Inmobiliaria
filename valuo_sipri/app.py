@@ -83,21 +83,23 @@ async def create_opinion(
     client_name: str = Form(...), address: str = Form(...), operation: str = Form(...), property_type: str = Form(...),
     zone_name: str = Form(...), latitude: str = Form(...), longitude: str = Form(...), land_m2: str = Form("0"),
     construction_m2: str = Form("0"), bedrooms: str = Form("0"), bathrooms: str = Form("0"),
-    parking_spaces: str = Form("0"), age_years: str = Form("0"), quality: str = Form("MEDIA"),
+    parking_spaces: str = Form("0"), age_years: str = Form("0"), quality: str = Form("MEDIA"), condition: str = Form("BUENO"),
     amenities: list[str] = Form(default=[]), photos: list[UploadFile] = File(default=[]),
 ):
-    operation, property_type, quality = operation.upper(), property_type.upper(), quality.upper()
+    operation, property_type, quality, condition = operation.upper(), property_type.upper(), quality.upper(), condition.upper()
     if operation not in {"VENTA", "RENTA"} or property_type not in {"CASA", "DEPARTAMENTO", "BODEGA", "TERRENO"}:
         raise HTTPException(422, "Operación o tipo de inmueble no permitido.")
     if quality not in {"BASICA", "MEDIA", "BUENA", "ALTA"}:
         raise HTTPException(422, "Calidad no permitida.")
+    if condition not in {"MALO", "REGULAR", "BUENO", "MUY_BUENO", "EXCELENTE"}:
+        raise HTTPException(422, "Estado de conservación no permitido.")
     values = {
         "client_name": client_name.strip(), "address": address.strip(), "operation": operation, "property_type": property_type,
         "zone_name": zone_name, "latitude": number(latitude, "Latitud", allow_negative=True), "longitude": number(longitude, "Longitud", allow_negative=True),
         "land_m2": number(land_m2, "Terreno"), "construction_m2": number(construction_m2, "Construcción"),
         "bedrooms": int(number(bedrooms, "Recámaras")), "bathrooms": number(bathrooms, "Baños"),
         "parking_spaces": int(number(parking_spaces, "Estacionamientos")), "age_years": int(number(age_years, "Antigüedad")),
-        "quality": quality, "amenities": amenities,
+        "quality": quality, "condition": condition, "amenities": amenities,
     }
     if not -90 <= values["latitude"] <= 90 or not -180 <= values["longitude"] <= 180:
         raise HTTPException(422, "Las coordenadas están fuera de rango.")
@@ -123,7 +125,7 @@ async def create_opinion(
         comparable_summary = {}
         for market, market_result in results.items():
             market_comparables = [
-                {"referencia": row["item"].reference, "precio": row["item"].price, "distancia_km": round(row["geo"], 2), "verificado": row["item"].verified}
+                {"referencia": row["item"].reference, "precio": row["item"].price, "distancia_km": round(row["geo"], 2), "verificado": row["item"].verified, "factores": row["factors"]}
                 for row in market_result["comparables"]
             ]
             comparable_summary[market] = market_comparables
