@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import uuid
@@ -34,6 +35,7 @@ for folder in (UPLOAD_DIR, PDF_DIR):
 app = FastAPI(title="VALUO SIPRI", version="0.1.0")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 templates = Jinja2Templates(directory=ROOT / "templates")
+logger = logging.getLogger("valuo_sipri")
 
 
 @app.on_event("startup")
@@ -138,6 +140,11 @@ async def create_opinion(
         session.add(opinion)
         session.commit()
         return RedirectResponse(f"/opinions/{opinion.id}", status_code=303)
+    except Exception as exc:
+        session.rollback()
+        logger.exception("No fue posible guardar la opinión de valor")
+        # El detalle queda en los registros de Render; al usuario se le muestra un mensaje seguro.
+        raise HTTPException(500, "No fue posible guardar la opinión. Revise que el despliegue tenga la base de datos configurada.") from exc
     finally:
         session.close()
 
