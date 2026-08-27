@@ -20,7 +20,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .database import Amenity, Comparable, Opinion, SessionLocal, Zone, create_database
-from .engine import estimate_opinion
+from .engine import estimate_both_markets
 from .seed import seed_database
 
 ROOT = Path(__file__).resolve().parent
@@ -104,7 +104,8 @@ async def create_opinion(
 
     session = SessionLocal()
     try:
-        result = estimate_opinion(values, session.query(Comparable).all(), session.query(Amenity).all())
+        results = estimate_both_markets(values, session.query(Comparable).all(), session.query(Amenity).all())
+        result = results[operation]
         folio = make_folio()
         photo_paths: list[str] = []
         safe_extensions = {".jpg", ".jpeg", ".png", ".webp"}
@@ -116,12 +117,21 @@ async def create_opinion(
             with destination.open("wb") as file:
                 shutil.copyfileobj(photo.file, file)
             photo_paths.append(str(destination))
-        comparable_summary = json.dumps([
-            {"referencia": row["item"].reference, "precio": row["item"].price, "distancia_km": round(row["geo"], 2), "verificado": row["item"].verified}
-            for row in result["comparables"]
-        ], ensure_ascii=False)
+        valuation_summary = {}
+        comparable_summary = {}
+        for market, market_result in results.items():
+            market_comparables = [
+                {"referencia": row["item"].reference, "precio": row["item"].price, "distancia_km": round(row["geo"], 2), "verificado": row["item"].verified}
+                for row in market_result["comparables"]
+            ]
+            comparable_summary[market] = market_comparables
+            valuation_summary[market] = {
+                "estimate": market_result["estimate"], "lower": market_result["lower"], "upper": market_result["upper"],
+                "confidence": market_result["confidence"], "model_version": market_result["model_version"],
+            }
         opinion = Opinion(
-            folio=folio, image_paths=json.dumps(photo_paths), amenities_text=", ".join(amenities), comparable_summary=comparable_summary,
+            folio=folio, image_paths=json.dumps(photo_paths), amenities_text=", ".join(amenities),
+            comparable_summary=json.dumps(comparable_summary, ensure_ascii=False), valuation_summary=json.dumps(valuation_summary, ensure_ascii=False),
             estimate=result["estimate"], lower_value=result["lower"], upper_value=result["upper"], confidence=result["confidence"],
             model_version=result["model_version"], **{key: value for key, value in values.items() if key != "amenities"},
         )
@@ -139,10 +149,15 @@ def view_opinion(request: Request, opinion_id: int):
         opinion = session.get(Opinion, opinion_id)
         if not opinion:
             raise HTTPException(404, "Opinión no encontrada.")
+        valuations = json.loads(opinion.valuation_summary or "{}")
         comparable_data = json.loads(opinion.comparable_summary)
+        if not valuations:  # Compatibilidad con opiniones creadas antes de la doble estimación.
+            valuations = {opinion.operation: {"estimate": opinion.estimate, "lower": opinion.lower_value, "upper": opinion.upper_value, "confidence": opinion.confidence, "model_version": opinion.model_version}}
+        if isinstance(comparable_data, list):
+            comparable_data = {opinion.operation: comparable_data}
         amenity_distances = closest_distances(opinion)
         return templates.TemplateResponse(request, "opinion.html", {
-            "opinion": opinion, "comparables": comparable_data, "amenity_distances": amenity_distances, "currency": currency,
+            "opinion": opinion, "valuations": valuations, "comparables": comparable_data, "amenity_distances": amenity_distances, "currency": currency,
         })
     finally:
         session.close()
@@ -179,20 +194,32 @@ def build_pdf(opinion: Opinion, destination: Path) -> None:
         Paragraph("SIPCO", styles["Title"]),
         Paragraph("VALUO SIPRI | OPINIÓN DE VALOR", styles["Heading1"]),
         Paragraph(f"Folio: {opinion.folio} | Fecha: {opinion.created_at:%d/%m/%Y}", styles["Normal"]), Spacer(1, 12),
-        Paragraph("Resultado preliminar", styles["Heading2"]),
-        Paragraph(f"Valor central: <b>{currency(opinion.estimate)}</b>", styles["Title"]),
-        Paragraph(f"Rango de referencia: {currency(opinion.lower_value)} a {currency(opinion.upper_value)}", styles["Normal"]),
-        Paragraph(f"Confianza: {opinion.confidence}. Modelo: {opinion.model_version}.", styles["Normal"]), Spacer(1, 12),
+        Paragraph("Referencias preliminares de valor", styles["Heading2"]),
         Paragraph("Ficha de la propiedad", styles["Heading2"]),
     ]
-    rows = [["Cliente", opinion.client_name], ["Operación", opinion.operation], ["Tipo", opinion.property_type], ["Ubicación", opinion.address], ["Zona", opinion.zone_name], ["Terreno", f"{opinion.land_m2:,.1f} m2"], ["Construcción", f"{opinion.construction_m2:,.1f} m2"], ["Recámaras / Baños / Cajones", f"{opinion.bedrooms} / {opinion.bathrooms} / {opinion.parking_spaces}"], ["Antigüedad / Calidad", f"{opinion.age_years} años / {opinion.quality}"], ["Amenidades", opinion.amenities_text or "No capturadas"]]
+    valuations = json.loads(opinion.valuation_summary or "{}")
+    if not valuations:
+        valuations = {opinion.operation: {"estimate": opinion.estimate, "lower": opinion.lower_value, "upper": opinion.upper_value, "confidence": opinion.confidence, "model_version": opinion.model_version}}
+    value_rows = [["Mercado", "Valor central", "Rango"]]
+    for market in ("VENTA", "RENTA"):
+        value = valuations.get(market)
+        if value:
+            value_rows.append([market, currency(value["estimate"]), f"{currency(value['lower'])} a {currency(value['upper'])}"])
+    values_table = Table(value_rows, colWidths=[3.2 * cm, 5.0 * cm, 8.8 * cm])
+    values_table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0B5ED7")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D7DEE2")), ("PADDING", (0, 0), (-1, -1), 6)]))
+    story += [values_table, Spacer(1, 12), Paragraph("Ficha de la propiedad", styles["Heading2"])]
+    rows = [["Cliente", opinion.client_name], ["Mercado de interés", opinion.operation], ["Tipo", opinion.property_type], ["Ubicación", opinion.address], ["Zona", opinion.zone_name], ["Terreno", f"{opinion.land_m2:,.1f} m2"], ["Construcción", f"{opinion.construction_m2:,.1f} m2"], ["Recámaras / Baños / Cajones", f"{opinion.bedrooms} / {opinion.bathrooms} / {opinion.parking_spaces}"], ["Antigüedad / Calidad", f"{opinion.age_years} años / {opinion.quality}"], ["Amenidades", opinion.amenities_text or "No capturadas"]]
     table = Table(rows, colWidths=[5 * cm, 12 * cm])
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#123047")), ("TEXTCOLOR", (0, 0), (0, -1), colors.white), ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D7DEE2")), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("PADDING", (0, 0), (-1, -1), 6)]))
     story += [table, Spacer(1, 12), Paragraph("Comparables considerados", styles["Heading2"])]
-    comparisons = [["Referencia", "Precio", "Distancia", "Estado"]]
-    for item in json.loads(opinion.comparable_summary):
-        comparisons.append([item["referencia"], currency(item["precio"]), f"{item['distancia_km']} km", "Verificado" if item["verificado"] else "Demostrativo"])
-    comparison_table = Table(comparisons, colWidths=[5.8 * cm, 4.0 * cm, 3.2 * cm, 4.0 * cm])
+    comparison_data = json.loads(opinion.comparable_summary)
+    if isinstance(comparison_data, list):
+        comparison_data = {opinion.operation: comparison_data}
+    comparisons = [["Mercado", "Referencia", "Precio", "Distancia", "Estado"]]
+    for market, items in comparison_data.items():
+        for item in items:
+            comparisons.append([market, item["referencia"], currency(item["precio"]), f"{item['distancia_km']} km", "Verificado" if item["verificado"] else "Demostrativo"])
+    comparison_table = Table(comparisons, colWidths=[2.1 * cm, 4.7 * cm, 3.8 * cm, 2.6 * cm, 3.8 * cm])
     comparison_table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#C89A3B")), ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D7DEE2")), ("PADDING", (0, 0), (-1, -1), 6)]))
     story += [comparison_table, Spacer(1, 12)]
     image_paths = json.loads(opinion.image_paths)

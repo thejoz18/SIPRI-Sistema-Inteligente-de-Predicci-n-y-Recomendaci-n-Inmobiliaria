@@ -71,3 +71,11 @@ def estimate_opinion(data: dict, comparables: list[Comparable], amenities: list[
         "weighted_ppsqm": weighted_ppsqm,
         "formula": "Precio/m2 ponderado de comparables KNN x superficie x calidad x amenidades x antigüedad",
     }
+
+
+def estimate_both_markets(data: dict, comparables: list[Comparable], amenities: list[Amenity]) -> dict[str, dict]:
+    """Calcula referencias independientes para venta y renta con sus propios comparables."""
+    return {
+        operation: estimate_opinion({**data, "operation": operation}, comparables, amenities)
+        for operation in ("VENTA", "RENTA")
+    }

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -93,9 +93,15 @@ class Opinion(Base):
     confidence: Mapped[str] = mapped_column(String(30))
     model_version: Mapped[str] = mapped_column(String(40))
     comparable_summary: Mapped[str] = mapped_column(Text)
+    valuation_summary: Mapped[str] = mapped_column(Text, default="{}")
     image_paths: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 def create_database() -> None:
     Base.metadata.create_all(bind=engine)
+    # Migración mínima para instalaciones locales creadas antes de calcular ambos mercados.
+    columns = {column["name"] for column in inspect(engine).get_columns("opinions")}
+    if "valuation_summary" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE opinions ADD COLUMN valuation_summary TEXT DEFAULT '{}'") )

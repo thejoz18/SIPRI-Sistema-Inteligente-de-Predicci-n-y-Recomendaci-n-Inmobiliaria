@@ -1,11 +1,11 @@
 import unittest
 
-from valuo_sipri.engine import estimate_opinion, haversine_km
+from valuo_sipri.engine import estimate_both_markets, estimate_opinion, haversine_km
 
 
 class Comparable:
-    def __init__(self, price, construction_m2, latitude=22.1508, longitude=-100.9842):
-        self.operation = "VENTA"
+    def __init__(self, price, construction_m2, operation="VENTA", latitude=22.1508, longitude=-100.9842):
+        self.operation = operation
         self.property_type = "CASA"
         self.price = price
         self.construction_m2 = construction_m2
@@ -27,6 +27,12 @@ class EngineTests(unittest.TestCase):
         self.assertGreater(result["estimate"], 0)
         self.assertLess(result["lower"], result["estimate"])
         self.assertGreater(result["upper"], result["estimate"])
+
+    def test_estimate_returns_sale_and_rent(self):
+        data = {"property_type": "CASA", "latitude": 22.1508, "longitude": -100.9842, "construction_m2": 180, "land_m2": 160, "bedrooms": 3, "quality": "MEDIA", "amenities": []}
+        results = estimate_both_markets(data, [Comparable(3600000, 180), Comparable(22000, 180, "RENTA")], [])
+        self.assertEqual(set(results), {"VENTA", "RENTA"})
+        self.assertGreater(results["VENTA"]["estimate"], results["RENTA"]["estimate"])
 
 
 if __name__ == "__main__":
