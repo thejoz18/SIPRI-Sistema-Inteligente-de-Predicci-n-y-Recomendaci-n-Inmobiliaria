@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VALUO SIPRI</title><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></head>
 <body><header><div><p class="eyebrow">SIPCO</p><h1>VALUO SIPRI</h1><p>Opiniones de valor inmobiliario con evidencia y revisión profesional.</p></div><span class="badge">MVP SLP</span></header>
-<main><section class="notice"><strong>Entorno de prueba:</strong> los comparables iniciales son demostrativos. Antes de emitir una opinión comercial deben sustituirse por registros verificados.</section>
+<main><section class="notice"><strong>Entorno de prueba:</strong> los comparables iniciales son demostrativos. Antes de emitir una opinión comercial deben sustituirse por registros verificados.{% if free_mode %} En Render Free, las fotografías y PDFs locales se eliminan al reiniciar o suspender el servicio.{% endif %}</section>
 <section class="card"><h2>Nueva opinión de valor</h2><form action="/opinions" method="post" enctype="multipart/form-data"><div class="grid">
 <label>Cliente<input name="client_name" required placeholder="Nombre del solicitante"></label><label>Operación<select name="operation"><option>VENTA</option><option>RENTA</option></select></label>
 <label>Tipo de inmueble<select name="property_type"><option>CASA</option><option>DEPARTAMENTO</option><option>BODEGA</option><option>TERRENO</option></select></label><label>Calidad<select name="quality"><option>MEDIA</option><option>BUENA</option><option>ALTA</option><option>BASICA</option></select></label>

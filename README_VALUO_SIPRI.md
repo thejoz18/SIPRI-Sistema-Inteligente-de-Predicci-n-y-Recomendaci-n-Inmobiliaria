@@ -25,12 +25,12 @@ La aplicación no reentrena al atender solicitudes. El flujo recomendado es:
 3. Se etiqueta el artefacto con una versión y se configura la aplicación para cargar esa versión.
 4. El PDF conserva la versión para mantener trazabilidad y permitir reversión.
 
-Antes de la siguiente fase se debe elegir almacenamiento de objetos para fotos/PDFs (por ejemplo, S3 compatible) y sustituir el disco persistente de Render. `render.yaml` incluye un disco de arranque para el MVP.
+La configuración actual usa Render Free: la base PostgreSQL gratuita conserva las opiniones durante su periodo gratuito, pero los archivos locales (fotografías y PDFs) se eliminan al reiniciar, redeplegar o suspender el servicio. Antes de uso comercial se debe incorporar almacenamiento de objetos para fotos/PDFs y un plan persistente.
 
 ## Despliegue
 
 1. Crear un repositorio privado en GitHub y subir el proyecto, excluyendo `.venv`, `runtime_data`, bases SQLite y archivos de usuario.
-2. En Render seleccionar **New > Blueprint**, conectar el repositorio y aprobar el `render.yaml`.
+2. En Render seleccionar **New > Blueprint**, conectar el repositorio y aprobar el `render.yaml`. Seleccionar las instancias Free.
 3. Verificar la URL `/health` y realizar una opinión de prueba.
 4. Configurar protección de rama para que Render despliegue después del trabajo `Quality and deploy gate`.
 

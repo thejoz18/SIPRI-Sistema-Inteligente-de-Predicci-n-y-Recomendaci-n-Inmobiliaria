@@ -25,6 +25,7 @@ from .seed import seed_database
 
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("DATA_DIR", ROOT / "runtime_data"))
+FREE_MODE = os.getenv("FREE_MODE", "false").lower() == "true"
 UPLOAD_DIR = DATA_DIR / "uploads"
 PDF_DIR = DATA_DIR / "pdf"
 for folder in (UPLOAD_DIR, PDF_DIR):
@@ -70,7 +71,7 @@ def home(request: Request):
     try:
         zones = session.query(Zone).order_by(Zone.name).all()
         opinions = session.query(Opinion).order_by(Opinion.created_at.desc()).limit(8).all()
-        return templates.TemplateResponse(request, "index.html", {"zones": zones, "opinions": opinions})
+        return templates.TemplateResponse(request, "index.html", {"zones": zones, "opinions": opinions, "free_mode": FREE_MODE})
     finally:
         session.close()
 
